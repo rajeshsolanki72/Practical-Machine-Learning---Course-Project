@@ -1,0 +1,112 @@
+---
+title: "Prediction Assignment Writeup"
+author: "Rajesh Solanki"
+date: "October 4, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Background
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+## Data
+The training data for this project are available here:
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+The test data are available here:
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+The data for this project come from this source: http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har. If you use the document you create for this class for any purpose please cite them as they have been very generous in allowing their data to be used for this kind of assignment.
+
+## Pre-Processing
+This segment include uploading data from website and loading required pacages..
+```{r echo=TRUE}
+library(caret); library(rpart);library(ggplot2);library(randomForest)
+### Download Data
+trainURL <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+testURL <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+training <- read.csv(url(trainURL), na.strings = c("NA","#DIV/0!",""))
+testing <- read.csv(url(testURL), na.strings = c("NA","#DIV/0!",""))
+
+# Data Cleaning
+training<- training[, colSums(is.na(training)) == 0]
+testing <- testing[, colSums(is.na(testing)) == 0]
+
+head(colnames(training))
+### The first 7 variables of the training data were deleted, because they are irrelevant to the prediction.
+training <- training[,8:dim(training)[2]]
+testing <- testing[,8:dim(testing)[2]]
+
+```
+
+## Training, Testing & Validation Data
+The training dataset was separated into three parts: tranining part (60%), testing part (20%), and validation part (20%)
+```{r echo=TRUE}
+set.seed(123)
+trainingdata1 <- createDataPartition(y = training$classe, p = 0.8, list = F)
+trainingdata2 <- training[trainingdata1,]
+validation <- training[-trainingdata1,]
+modelingdata <- createDataPartition(y = trainingdata2$classe, p = 0.75, list = F)
+modeltraining <- trainingdata2[modelingdata,]
+modeltesting <- trainingdata2[-modelingdata,]
+```
+
+## Data exploration
+```{r echo=TRUE}
+qplot(classe, data=modeltraining, main="Distribution of Classes")
+
+names(modeltraining)
+```
+
+
+
+## Model-1 : Classification Tree
+```{r }
+model_tree <- rpart(classe ~ ., data=modeltraining, method="class")
+prediction_tree <- predict(model_tree, modeltesting, type="class")
+class_tree <- confusionMatrix(prediction_tree, modeltesting$classe)
+class_tree
+```
+#### Ploting model tree
+```{r}
+library(rpart.plot)
+rpart.plot(model_tree)
+```
+
+## Model-2 : Random Forest Model
+```{r}
+forest_model <- randomForest(classe ~ ., data=modeltraining, method="class")
+prediction_forest <- predict(forest_model, modeltesting, type="class")
+random_forest <- confusionMatrix(prediction_forest, modeltesting$classe)
+random_forest
+```
+## Model-3 : Liner Discriminant Analysis
+
+```{r}
+lda_model <- train(classe ~ ., data=modeltraining, method="lda")
+prediction_lda <- predict(lda_model, modeltesting)
+lda <- confusionMatrix(prediction_lda, modeltesting$classe)
+lda
+
+```
+The Random Forest is a much better predictive model than the Decision Tree and Liner Discriminant Analysis which has a larger accuracy (99.91%).Therefore, we don't need to consider more important predictors for the Random Forest model
+
+## Final Prediction
+ Prediction modeling on new data with confusion Matrix
+ 
+```{r}
+prediction_Final <- predict(forest_model, newdata = modeltesting)
+confusionMatrix(prediction_Final,modeltesting$classe)
+
+prediction_validation <- predict(forest_model, newdata = validation)
+confusionMatrix(prediction_validation,validation$classe)
+```
+
+## Conclusions
+
+The above result show that the random forest model has the highest accuracy in cross validation (>99.3%). Therefore, we will use the random forest model for predicting test samples.
+
+## Referances
+The data for this project come from this source: http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har. If you use the document you create for this class for any purpose please cite them as they have been very generous in allowing their data to be used for this kind of assignmen.
